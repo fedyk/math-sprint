@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Math Sprint Arcade - Multiplication Master</title>
+    <title>Math Sprint Arcade - Multiplication &amp; Division</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts & Font Awesome -->
@@ -174,7 +174,7 @@
                     </div>
                     <div>
                         <h2 id="dash-player-name" class="font-fredoka text-2xl text-indigo-950 leading-tight">Kid Name</h2>
-                        <p class="text-xs font-extrabold text-indigo-500 tracking-wider uppercase">Multiplication Apprentice</p>
+                        <p class="text-xs font-extrabold text-indigo-500 tracking-wider uppercase">Math Apprentice</p>
                     </div>
                 </div>
 
@@ -198,12 +198,16 @@
                         <i class="fa-solid fa-map-location-dot text-indigo-500"></i>
                         Unlocked Tables Progress
                     </h3>
-                    <span class="text-xs font-bold text-slate-500">Fast Speed Target: &lt; 5 sec</span>
+                    <span class="text-xs font-bold text-slate-500">Fast Speed Target: ≤ 5 sec</span>
                 </div>
 
+                <h4 class="font-bold text-sm mb-2">Multiplication</h4>
                 <div id="tables-grid" class="grid grid-cols-4 sm:grid-cols-6 gap-2">
                     <!-- Injected via JavaScript (Tables 2-12) -->
                 </div>
+                <h4 class="font-bold text-sm mt-4 mb-2">Division</h4>
+                <p id="division-hint" class="text-xs text-slate-500 mb-2"></p>
+                <div id="division-tables-grid" class="grid grid-cols-4 sm:grid-cols-6 gap-2"></div>
             </div>
 
             <!-- Start Game CTA -->
@@ -213,7 +217,7 @@
                         <i class="fa-solid fa-bolt text-yellow-200"></i>
                         120-Second Speed Run
                     </h4>
-                    <p class="text-xs font-bold text-amber-100">Answer multiplication questions from your unlocked tables as fast as you can!</p>
+                    <p id="game-pool-description" class="text-xs font-bold text-amber-100"></p>
                 </div>
                 <button onclick="startGame()" class="w-full sm:w-auto arcade-btn bg-white hover:bg-slate-100 text-amber-600 font-fredoka px-8 py-3 rounded-xl text-lg tracking-wide uppercase shadow-md flex items-center justify-center gap-2">
                     <i class="fa-solid fa-play"></i> START GAME
@@ -238,6 +242,7 @@
                                 <th class="p-2.5 sm:p-3 text-center">Score</th>
                                 <th class="p-2.5 sm:p-3 text-center text-emerald-300">Passed</th>
                                 <th class="p-2.5 sm:p-3 text-center text-rose-300">Failed</th>
+                                <th class="p-2.5 sm:p-3 text-center">Unlocked</th>
                             </tr>
                         </thead>
                         <tbody id="session-history-tbody">
@@ -303,7 +308,7 @@
                 <!-- Question Display -->
                 <div id="question-display" class="flex items-center justify-center gap-3 sm:gap-4 font-fredoka text-5xl sm:text-7xl text-indigo-950 my-4">
                     <span id="factor-a">2</span>
-                    <span class="text-pink-500">×</span>
+                    <span id="operation-symbol" class="text-pink-500">×</span>
                     <span id="factor-b">3</span>
                     <span class="text-slate-400">=</span>
                     <span id="user-input-display" class="min-w-[70px] sm:min-w-[90px] h-[65px] sm:h-[80px] bg-slate-100 border-b-4 border-indigo-600 rounded-2xl flex items-center justify-center text-indigo-600 px-2">?</span>
@@ -373,7 +378,7 @@
                     <span id="res-correct" class="font-fredoka text-3xl text-emerald-600">0</span>
                 </div>
                 <div class="bg-amber-50 p-3 rounded-2xl border border-amber-100">
-                    <span class="block text-xs font-black text-slate-400 uppercase">Fast (&lt;5s) Answers</span>
+                    <span class="block text-xs font-black text-slate-400 uppercase">Fast (≤5s) Answers</span>
                     <span id="res-fast" class="font-fredoka text-3xl text-amber-500">0</span>
                 </div>
                 <div class="bg-orange-50 p-3 rounded-2xl border border-orange-100">
@@ -395,7 +400,7 @@
     </main>
 
     <footer class="w-full max-w-4xl mx-auto text-center py-3 text-white/50 text-xs">
-        <p>Interactive Multiplication Arcade • Local Storage Supported</p>
+        <p>Interactive Multiplication &amp; Division Arcade • Local Storage Supported</p>
     </footer>
 
     <!-- JS Logic -->
@@ -418,6 +423,12 @@
         let totalFailed = 0;
         let totalFastAnswers = 0;
         let sessionFastCount = {};
+        let sessionDivisionFastCount = {};
+        let currentOperation = 'multiplication';
+        let questionIndex = 0;
+        let roundActive = false;
+        let roundDeadline = 0;
+        let wrongAnswerTimeout = null;
 
         let currentFactorA = 0;
         let currentFactorB = 0;
@@ -431,6 +442,8 @@
                 id: 'kid_k',
                 name: 'Kid K',
                 unlockedTables: [2, 3],
+                unlockedDivisionTables: [],
+                divisionFastCounts: {},
                 tableFastCounts: { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0 },
                 highScore: 0,
                 totalFastAnswers: 0,
@@ -469,8 +482,21 @@
                 }
             } else {
                 profiles = JSON.parse(JSON.stringify(PRESETS));
-                saveProfiles();
             }
+            // Add division fields without replacing saved progress or session history.
+            Object.values(profiles).forEach(profile => {
+                profile.unlockedDivisionTables ??= [];
+                profile.divisionFastCounts ??= {};
+                if (hasAllMultiplicationTables(profile) && !profile.unlockedDivisionTables.includes(2)) {
+                    profile.unlockedDivisionTables.push(2);
+                }
+            });
+            saveProfiles();
+        }
+
+        function hasAllMultiplicationTables(profile) {
+            return Array.from({ length: 11 }, (_, i) => i + 2)
+                .every(table => profile.unlockedTables.includes(table));
         }
 
         function saveProfiles() {
@@ -484,7 +510,8 @@
         // ================= KEYBOARD INPUT =================
         function handleKeyPress(e) {
             const gameScreen = document.getElementById('game-screen');
-            if (gameScreen.classList.contains('hidden') || isProcessingWrong) return;
+            if (!roundActive || gameScreen.classList.contains('hidden') || isProcessingWrong) return;
+            if (/^[0-9]$/.test(e.key) || ['Backspace', 'Delete', 'Enter'].includes(e.key)) e.preventDefault();
 
             if (e.key >= '0' && e.key <= '9') {
                 appendInput(e.key);
@@ -496,7 +523,7 @@
         }
 
         function appendInput(digit) {
-            if (isProcessingWrong) return;
+            if (!roundActive || isProcessingWrong) return;
             playSound('click');
             if (currentInput.length < 4) {
                 currentInput += digit;
@@ -505,9 +532,9 @@
         }
 
         function clearInput() {
-            if (isProcessingWrong) return;
+            if (!roundActive || isProcessingWrong) return;
             playSound('click');
-            currentInput = "";
+            currentInput = currentInput.slice(0, -1);
             updateInputDisplay();
         }
 
@@ -519,10 +546,12 @@
         }
 
         function submitAnswer() {
-            if (isProcessingWrong || currentInput === "") return;
+            if (!roundActive || isProcessingWrong || currentInput === "") return;
+            if (Date.now() >= roundDeadline) { endGame(); return; }
 
             const userAns = parseInt(currentInput, 10);
-            const correctAns = currentFactorA * currentFactorB;
+            const correctAns = currentOperation === 'division'
+                ? currentFactorA / currentFactorB : currentFactorA * currentFactorB;
             const timeTaken = Date.now() - problemStartTime;
 
             currentInput = "";
@@ -539,15 +568,23 @@
             const p = profiles[activeProfileId];
             if (!p || !p.unlockedTables || p.unlockedTables.length === 0) return;
 
-            const availableTables = p.unlockedTables;
-            currentFactorA = availableTables[Math.floor(Math.random() * availableTables.length)];
-            currentFactorB = Math.floor(Math.random() * 11) + 2;
-
-            if (Math.random() > 0.5) {
-                const temp = currentFactorA;
-                currentFactorA = currentFactorB;
-                currentFactorB = temp;
+            currentOperation = p.unlockedDivisionTables.length && questionIndex % 4 < 3
+                ? 'division' : 'multiplication';
+            questionIndex++;
+            if (currentOperation === 'division') {
+                const tables = p.unlockedDivisionTables;
+                currentFactorB = tables[Math.floor(Math.random() * tables.length)];
+                const quotient = Math.floor(Math.random() * 11) + 2;
+                currentFactorA = currentFactorB * quotient;
+            } else {
+                const tables = p.unlockedTables;
+                currentFactorA = tables[Math.floor(Math.random() * tables.length)];
+                currentFactorB = Math.floor(Math.random() * 11) + 2;
+                if (Math.random() > 0.5) {
+                    [currentFactorA, currentFactorB] = [currentFactorB, currentFactorA];
+                }
             }
+            document.getElementById('operation-symbol').innerText = currentOperation === 'division' ? '÷' : '×';
 
             document.getElementById('factor-a').innerText = currentFactorA;
             document.getElementById('factor-b').innerText = currentFactorB;
@@ -621,6 +658,15 @@
 
         // ================= SCREEN SWITCHER =================
         function showScreen(screenId) {
+            if (roundActive && screenId !== 'game-screen') {
+                const pauseStarted = Date.now();
+                const leave = confirm('Leave this round? Your score and progress from this round will not be saved.');
+                const pausedFor = Date.now() - pauseStarted;
+                roundDeadline += pausedFor;
+                problemStartTime += pausedFor;
+                if (!leave) return;
+                stopRound();
+            }
             playSound('click');
             ['profile-screen', 'dashboard-screen', 'game-screen', 'result-screen'].forEach(id => {
                 const el = document.getElementById(id);
@@ -649,13 +695,15 @@
                 
                 const initials = p.name.charAt(0).toUpperCase();
                 const tablesText = p.unlockedTables.join(', ');
+                const divisionText = p.unlockedDivisionTables.length ? p.unlockedDivisionTables.join(', ') : 'Locked';
 
                 card.innerHTML = `
                     <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white font-fredoka text-xl flex items-center justify-center mb-2 shadow-md">
                         ${initials}
                     </div>
                     <div class="font-fredoka text-lg text-indigo-950">${p.name}</div>
-                    <div class="text-[11px] font-bold text-slate-500 mt-1">Tables: ${tablesText}</div>
+                    <div class="text-[11px] font-bold text-slate-500 mt-1">Multiply: ${tablesText}</div>
+                    <div class="text-[11px] font-bold text-slate-500 mt-1">Divide: ${divisionText}</div>
                     <div class="text-[11px] font-black text-amber-500 mt-0.5">High Score: ${p.highScore || 0}</div>
                 `;
 
@@ -680,6 +728,8 @@
                 id: id,
                 name: name,
                 unlockedTables: [2, 3],
+                unlockedDivisionTables: [],
+                divisionFastCounts: {},
                 tableFastCounts: { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0 },
                 highScore: 0,
                 totalFastAnswers: 0,
@@ -727,7 +777,7 @@
                     card.innerHTML = `
                         <span class="font-fredoka text-lg text-emerald-800">×${t}</span>
                         <span class="text-[9px] font-black text-emerald-600 bg-emerald-200/60 px-1.5 py-0.5 rounded-full mt-1">
-                            ${isHighestUnlocked ? '★ Target' : 'Ready'}
+                            ${isHighestUnlocked && maxUnlocked < 12 ? '★ Target' : 'Ready'}
                         </span>
                     `;
                 } else {
@@ -748,6 +798,26 @@
                 grid.appendChild(card);
             }
 
+            const divisionTables = p.unlockedDivisionTables;
+            const maxDivision = divisionTables.length ? Math.max(...divisionTables) : null;
+            document.getElementById('division-hint').innerText = maxDivision
+                ? 'Practice all unlocked tables. Get 10 fast answers on the target table in one session to unlock the next.'
+                : 'Unlock all multiplication tables to start division by 2.';
+            document.getElementById('game-pool-description').innerText = maxDivision
+                ? 'Three division questions, then one multiplication question — from all your unlocked tables!'
+                : 'Answer multiplication questions from your unlocked tables as fast as you can!';
+            const divisionGrid = document.getElementById('division-tables-grid');
+            divisionGrid.innerHTML = '';
+            for (let t = 2; t <= 12; t++) {
+                const unlocked = divisionTables.includes(t);
+                const next = maxDivision && t === maxDivision + 1;
+                const card = document.createElement('div');
+                card.className = `border-2 rounded-xl p-2 text-center ${unlocked ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : next ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-slate-100 border-slate-200 text-slate-500 opacity-60'}`;
+                card.innerHTML = `<span class="font-fredoka text-lg">${unlocked ? '' : '<i class="fa-solid fa-lock text-xs"></i> '}÷${t}</span>
+                    <span class="block text-[9px] font-black mt-1">${unlocked ? (t === maxDivision && t < 12 ? '★ Target' : 'Ready') : next ? `Get 10 Fast in 1 session on ÷${maxDivision}` : 'Locked'}</span>`;
+                divisionGrid.appendChild(card);
+            }
+
             // Render Session Logs Table
             renderSessionLogsTable(p.sessions || []);
         }
@@ -759,7 +829,7 @@
             if (!sessions || sessions.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="4" class="p-4 text-center text-slate-400 font-semibold italic">
+                        <td colspan="5" class="p-4 text-center text-slate-400 font-semibold italic">
                             No games played yet. Click "START GAME" above to begin your first speed run!
                         </td>
                     </tr>
@@ -779,6 +849,7 @@
                     <td class="p-2.5 sm:p-3 text-center font-fredoka text-indigo-900 text-sm">${s.score}</td>
                     <td class="p-2.5 sm:p-3 text-center font-black text-emerald-600 bg-emerald-50/50">${s.passed}</td>
                     <td class="p-2.5 sm:p-3 text-center font-black text-rose-500 bg-rose-50/50">${s.failed}</td>
+                    <td class="p-2.5 sm:p-3 text-center text-indigo-700">${s.unlockedTables ? (s.unlockedTables.join(', ') || 'None') : '—'}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -801,6 +872,11 @@
             const p = profiles[activeProfileId];
             if (!p) return;
 
+            stopRound();
+            roundActive = true;
+            roundDeadline = Date.now() + 120000;
+            questionIndex = 0;
+            sessionDivisionFastCount = {};
             gameTimer = 120;
             currentScore = 0;
             currentStreak = 0;
@@ -825,18 +901,22 @@
             showScreen('game-screen');
             nextQuestion();
 
-            if (timerInterval) clearInterval(timerInterval);
             timerInterval = setInterval(() => {
-                if (!isProcessingWrong) {
-                    gameTimer--;
-                    document.getElementById('game-timer').innerText = gameTimer + 's';
+                gameTimer = Math.max(0, Math.ceil((roundDeadline - Date.now()) / 1000));
+                document.getElementById('game-timer').innerText = gameTimer + 's';
+                if (gameTimer <= 0) endGame();
+            }, 100);
+        }
 
-                    if (gameTimer <= 0) {
-                        clearInterval(timerInterval);
-                        endGame();
-                    }
-                }
-            }, 1000);
+        function stopRound() {
+            roundActive = false;
+            clearInterval(timerInterval);
+            timerInterval = null;
+            clearTimeout(wrongAnswerTimeout);
+            wrongAnswerTimeout = null;
+            isProcessingWrong = false;
+            document.getElementById('correct-answer-overlay').classList.add('hidden');
+            document.getElementById('problem-card').classList.remove('animate-shake');
         }
 
         function handleCorrectAnswer(timeTaken) {
@@ -854,8 +934,12 @@
                 points += 5;
                 totalFastAnswers++;
 
-                sessionFastCount[currentFactorA] = (sessionFastCount[currentFactorA] || 0) + 1;
-                sessionFastCount[currentFactorB] = (sessionFastCount[currentFactorB] || 0) + 1;
+                if (currentOperation === 'division') {
+                    sessionDivisionFastCount[currentFactorB] = (sessionDivisionFastCount[currentFactorB] || 0) + 1;
+                } else {
+                    sessionFastCount[currentFactorA] = (sessionFastCount[currentFactorA] || 0) + 1;
+                    sessionFastCount[currentFactorB] = (sessionFastCount[currentFactorB] || 0) + 1;
+                }
 
                 showSpeedFeedback();
             }
@@ -884,7 +968,7 @@
             void problemCard.offsetWidth; // force reflow
             problemCard.classList.add('animate-shake');
 
-            const equationText = `${currentFactorA} × ${currentFactorB} = ${correctAns}`;
+            const equationText = `${currentFactorA} ${currentOperation === 'division' ? '÷' : '×'} ${currentFactorB} = ${correctAns}`;
             document.getElementById('reveal-equation').innerText = equationText;
 
             const overlay = document.getElementById('correct-answer-overlay');
@@ -896,7 +980,8 @@
             
             overlay.classList.remove('hidden');
 
-            setTimeout(() => {
+            wrongAnswerTimeout = setTimeout(() => {
+                if (!roundActive) return;
                 overlay.classList.add('hidden');
                 problemCard.classList.remove('animate-shake');
                 isProcessingWrong = false;
@@ -939,6 +1024,8 @@
 
         // ================= END GAME & SAVE SESSION =================
         function endGame() {
+            if (!roundActive) return;
+            stopRound();
             const p = profiles[activeProfileId];
             if (!p) return;
 
@@ -953,20 +1040,25 @@
                 p.tableFastCounts[tNum] = (p.tableFastCounts[tNum] || 0) + (sessionFastCount[tNum] || 0);
             });
 
-            // Evaluate unlocking table
-            let newlyUnlockedTable = null;
+            Object.entries(sessionDivisionFastCount).forEach(([table, count]) => {
+                p.divisionFastCounts[table] = (p.divisionFastCounts[table] || 0) + count;
+            });
+
+            const unlockedThisSession = [];
             const currentMaxUnlocked = Math.max(...p.unlockedTables);
-
-            if (currentMaxUnlocked < 12) {
-                const nextTable = currentMaxUnlocked + 1;
-                const fastAnswersInThisSessionOnMaxTable = sessionFastCount[currentMaxUnlocked] || 0;
-
-                if (fastAnswersInThisSessionOnMaxTable >= SESSION_FAST_TO_UNLOCK) {
-                    p.unlockedTables.push(nextTable);
-                    newlyUnlockedTable = nextTable;
-                    playSound('unlock');
-                }
+            const maxDivision = p.unlockedDivisionTables.length ? Math.max(...p.unlockedDivisionTables) : null;
+            if (currentMaxUnlocked < 12 && (sessionFastCount[currentMaxUnlocked] || 0) >= SESSION_FAST_TO_UNLOCK) {
+                p.unlockedTables.push(currentMaxUnlocked + 1);
+                unlockedThisSession.push(`×${currentMaxUnlocked + 1}`);
             }
+            if (hasAllMultiplicationTables(p) && !p.unlockedDivisionTables.includes(2)) {
+                p.unlockedDivisionTables.push(2);
+                unlockedThisSession.push('÷2');
+            } else if (maxDivision && maxDivision < 12 && (sessionDivisionFastCount[maxDivision] || 0) >= SESSION_FAST_TO_UNLOCK) {
+                p.unlockedDivisionTables.push(maxDivision + 1);
+                unlockedThisSession.push(`÷${maxDivision + 1}`);
+            }
+            if (unlockedThisSession.length) playSound('unlock');
 
             // Create formatted Session Log
             const now = new Date();
@@ -977,7 +1069,8 @@
                 timestamp: `${dateStr}, ${timeStr}`,
                 score: currentScore,
                 passed: totalCorrect,
-                failed: totalFailed
+                failed: totalFailed,
+                unlockedTables: unlockedThisSession
             };
 
             if (!p.sessions) p.sessions = [];
@@ -997,8 +1090,8 @@
             document.getElementById('res-streak').innerText = bestStreak;
 
             const unlockBanner = document.getElementById('unlock-notification');
-            if (newlyUnlockedTable) {
-                document.getElementById('unlock-notification-text').innerText = `Outstanding! You scored ${sessionFastCount[currentMaxUnlocked]} fast answers on Table ${currentMaxUnlocked} and unlocked Table ${newlyUnlockedTable}!`;
+            if (unlockedThisSession.length) {
+                document.getElementById('unlock-notification-text').innerText = `Outstanding! You unlocked: ${unlockedThisSession.join(', ')}!`;
                 unlockBanner.classList.remove('hidden');
 
                 if (typeof confetti === 'function') {
