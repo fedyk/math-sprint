@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Math Sprint Arcade - Multiplication Master</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts & Font Awesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        fredoka: ['"Fredoka One"', 'cursive'],
+                        nunito: ['Nunito', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            purple: '#7C3AED',
+                            pink: '#EC4899',
+                            yellow: '#F59E0B',
+                            green: '#10B981',
+                            blue: '#3B82F6',
+                            dark: '#1E1B4B'
+                        }
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        wowZoom: {
+                            '0%': { transform: 'scale(0.2) rotate(-10deg)', opacity: '0' },
+                            '50%': { transform: 'scale(1.25) rotate(5deg)' },
+                            '70%': { transform: 'scale(0.95) rotate(-2deg)' },
+                            '100%': { transform: 'scale(1) rotate(0deg)', opacity: '1' }
+                        },
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '20%, 60%': { transform: 'translateX(-10px)' },
+                            '40%, 80%': { transform: 'translateX(10px)' }
+                        }
+                    },
+                    animation: {
+                        'bounce-short': 'bounce 0.4s ease-in-out 1',
+                        'pulse-fast': 'pulse 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                        'wow-zoom': 'wowZoom 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
+                        'shake': 'shake 0.4s ease-in-out'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        .arcade-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 12px 0px 0px rgba(0, 0, 0, 0.15), 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .arcade-btn {
+            transition: all 0.1s ease;
+            box-shadow: 0 6px 0 0 rgba(0,0,0,0.25);
+        }
+        .arcade-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 0 rgba(0,0,0,0.25);
+        }
+        .keypad-btn {
+            box-shadow: 0 5px 0 0 #0f172a;
+            transition: all 0.05s ease;
+        }
+        .keypad-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 1px 0 0 #0f172a;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 min-h-screen text-slate-800 overflow-x-hidden flex flex-col justify-between p-2 sm:p-4">
+
+    <!-- Top Navigation Bar -->
+    <header class="w-full max-w-4xl mx-auto flex justify-between items-center bg-white/10 backdrop-blur-md rounded-2xl p-3 mb-3 border border-white/20 text-white">
+        <div class="flex items-center gap-2 cursor-pointer" onclick="showScreen('profile-screen')">
+            <div class="w-10 h-10 rounded-full bg-yellow-400 text-indigo-900 font-fredoka flex items-center justify-center text-xl shadow-lg border-2 border-white">
+                <i class="fa-solid fa-gamepad"></i>
+            </div>
+            <div>
+                <h1 class="font-fredoka text-lg sm:text-xl tracking-wide leading-none text-yellow-300">MATH SPRINT</h1>
+                <span class="text-xs text-indigo-200 font-bold uppercase tracking-wider">Arcade Edition</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <!-- Active Profile Indicator -->
+            <div id="active-profile-pill" class="hidden sm:flex items-center gap-2 bg-indigo-950/60 px-3 py-1.5 rounded-full border border-indigo-400/30">
+                <span class="text-xs text-indigo-300 font-bold">PLAYER:</span>
+                <span id="nav-player-name" class="font-fredoka text-yellow-300 text-sm">--</span>
+            </div>
+
+            <!-- Sound Toggle -->
+            <button id="sound-btn" onclick="toggleSound()" class="w-10 h-10 rounded-xl bg-white/20 hover:bg-white/30 flex items-center justify-center text-xl transition border border-white/20">
+                <i id="sound-icon" class="fa-solid fa-volume-high"></i>
+            </button>
+
+            <!-- Switch Profile Button -->
+            <button onclick="showScreen('profile-screen')" class="px-3 py-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-indigo-950 font-black text-xs uppercase tracking-wider shadow-md transition flex items-center gap-1.5">
+                <i class="fa-solid fa-user-gear"></i>
+                <span class="hidden sm:inline">Profiles</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full max-w-4xl mx-auto flex-1 flex flex-col justify-center items-center relative my-auto">
+
+        <!-- ================= SCREEN 1: PROFILE SELECTION ================= -->
+        <section id="profile-screen" class="w-full max-w-lg arcade-card rounded-3xl p-6 sm:p-8 text-center border-4 border-indigo-400/30 my-auto">
+            <div class="inline-block p-3 rounded-full bg-yellow-100 text-yellow-600 mb-2 animate-float">
+                <i class="fa-solid fa-trophy text-4xl"></i>
+            </div>
+            <h2 class="font-fredoka text-3xl sm:text-4xl text-indigo-950 mb-1">WHO IS PLAYING?</h2>
+            <p class="text-slate-600 font-semibold mb-6 text-sm">Select your profile to start playing!</p>
+
+            <!-- Profiles Grid -->
+            <div class="grid grid-cols-2 gap-4 mb-6" id="profiles-container">
+                <!-- Injected via JavaScript -->
+            </div>
+
+            <!-- Custom Profile Creation Toggle -->
+            <div class="border-t border-slate-200 pt-4 text-left">
+                <button onclick="toggleNewProfileForm()" class="text-xs font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-wider flex items-center gap-1">
+                    <i class="fa-solid fa-plus-circle text-sm"></i> Add New Player Profile
+                </button>
+                <div id="new-profile-form" class="hidden mt-3 flex gap-2">
+                    <input type="text" id="new-player-name" placeholder="Enter name..." maxlength="12" class="flex-1 px-4 py-2 rounded-xl border-2 border-indigo-200 font-bold focus:outline-none focus:border-indigo-500 text-sm">
+                    <button onclick="createNewProfile()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-fredoka px-4 py-2 rounded-xl text-sm transition">
+                        CREATE
+                    </button>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ================= SCREEN 2: DASHBOARD / HUB ================= -->
+        <section id="dashboard-screen" class="hidden w-full max-w-2xl arcade-card rounded-3xl p-5 sm:p-8 border-4 border-purple-400/30 my-4">
+            <div class="flex flex-col sm:flex-row justify-between items-center border-b border-slate-200 pb-4 mb-5 gap-3">
+                <div class="flex items-center gap-3">
+                    <div id="dash-avatar" class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-500 text-white font-fredoka text-2xl flex items-center justify-center shadow-lg border-2 border-white">
+                        K
+                    </div>
+                    <div>
+                        <h2 id="dash-player-name" class="font-fredoka text-2xl text-indigo-950 leading-tight">Kid Name</h2>
+                        <p class="text-xs font-extrabold text-indigo-500 tracking-wider uppercase">Multiplication Apprentice</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 bg-indigo-50 px-4 py-2 rounded-2xl border border-indigo-100">
+                    <div class="text-center">
+                        <span class="block text-[10px] text-slate-400 font-black uppercase">High Score</span>
+                        <span id="dash-high-score" class="font-fredoka text-xl text-yellow-500">0</span>
+                    </div>
+                    <div class="w-px bg-slate-200"></div>
+                    <div class="text-center">
+                        <span class="block text-[10px] text-slate-400 font-black uppercase">Fast Answers</span>
+                        <span id="dash-fast-answers" class="font-fredoka text-xl text-emerald-500">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Progression Grid -->
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-fredoka text-lg text-indigo-950 flex items-center gap-2">
+                        <i class="fa-solid fa-map-location-dot text-indigo-500"></i>
+                        Unlocked Tables Progress
+                    </h3>
+                    <span class="text-xs font-bold text-slate-500">Fast Speed Target: &lt; 5 sec</span>
+                </div>
+
+                <div id="tables-grid" class="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                    <!-- Injected via JavaScript (Tables 2-12) -->
+                </div>
+            </div>
+
+            <!-- Start Game CTA -->
+            <div class="bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl p-4 text-white shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+                <div>
+                    <h4 class="font-fredoka text-xl flex items-center gap-2">
+                        <i class="fa-solid fa-bolt text-yellow-200"></i>
+                        120-Second Speed Run
+                    </h4>
+                    <p class="text-xs font-bold text-amber-100">Answer multiplication questions from your unlocked tables as fast as you can!</p>
+                </div>
+                <button onclick="startGame()" class="w-full sm:w-auto arcade-btn bg-white hover:bg-slate-100 text-amber-600 font-fredoka px-8 py-3 rounded-xl text-lg tracking-wide uppercase shadow-md flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-play"></i> START GAME
+                </button>
+            </div>
+
+            <!-- Session History Log Table -->
+            <div class="border-t border-slate-200 pt-5">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-fredoka text-lg text-indigo-950 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-purple-600"></i>
+                        Recent Session Logs
+                    </h3>
+                    <span class="text-xs font-bold text-slate-400">Last 50 Runs</span>
+                </div>
+
+                <div class="overflow-x-auto max-h-60 rounded-2xl border border-slate-200 shadow-inner bg-slate-50">
+                    <table class="w-full text-left text-xs font-bold text-slate-700">
+                        <thead class="bg-indigo-900 text-white font-fredoka uppercase text-[11px] sticky top-0 z-10">
+                            <tr>
+                                <th class="p-2.5 sm:p-3">Date & Time</th>
+                                <th class="p-2.5 sm:p-3 text-center">Score</th>
+                                <th class="p-2.5 sm:p-3 text-center text-emerald-300">Passed</th>
+                                <th class="p-2.5 sm:p-3 text-center text-rose-300">Failed</th>
+                            </tr>
+                        </thead>
+                        <tbody id="session-history-tbody">
+                            <!-- Injected dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex justify-between items-center mt-3">
+                    <p class="text-[11px] text-slate-400 font-semibold">Stored locally on device</p>
+                    <button onclick="clearCurrentProfileHistory()" class="text-xs font-black text-rose-500 hover:text-rose-700 uppercase tracking-wider flex items-center gap-1 transition">
+                        <i class="fa-solid fa-trash-can text-xs"></i> Clear History
+                    </button>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ================= SCREEN 3: GAMEPLAY SCREEN ================= -->
+        <section id="game-screen" class="hidden w-full max-w-xl flex flex-col gap-3 my-auto">
+            
+            <!-- Game Header HUD -->
+            <div class="bg-indigo-950/80 backdrop-blur-md p-4 rounded-2xl border border-indigo-400/30 flex justify-between items-center text-white">
+                <!-- Timer -->
+                <div class="flex items-center gap-2">
+                    <div class="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/50 flex items-center justify-center text-red-400 font-fredoka text-xl">
+                        <i class="fa-solid fa-stopwatch"></i>
+                    </div>
+                    <div>
+                        <span class="block text-[10px] text-slate-400 font-bold uppercase">Time Left</span>
+                        <span id="game-timer" class="font-fredoka text-2xl text-red-400">120s</span>
+                    </div>
+                </div>
+
+                <!-- Streak Indicator -->
+                <div class="text-center">
+                    <span class="block text-[10px] text-slate-400 font-bold uppercase">Streak</span>
+                    <span id="game-streak" class="font-fredoka text-2xl text-orange-400 flex items-center gap-1">
+                        0 <i class="fa-solid fa-fire text-sm"></i>
+                    </span>
+                </div>
+
+                <!-- Score -->
+                <div class="flex items-center gap-2 text-right">
+                    <div>
+                        <span class="block text-[10px] text-slate-400 font-bold uppercase">Score</span>
+                        <span id="game-score" class="font-fredoka text-2xl text-yellow-300">0</span>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-yellow-500/20 border border-yellow-500/50 flex items-center justify-center text-yellow-300 font-fredoka text-xl">
+                        <i class="fa-solid fa-star"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Problem Card Container -->
+            <div id="problem-card" class="arcade-card rounded-3xl p-6 text-center border-4 border-indigo-500/30 relative overflow-hidden flex flex-col items-center justify-center min-h-[220px]">
+                
+                <!-- Speed Bonus Indicator Banner -->
+                <div id="speed-feedback" class="opacity-0 transition-opacity duration-300 absolute top-3 bg-emerald-500 text-white font-black text-xs px-3 py-1 rounded-full uppercase tracking-widest shadow-md flex items-center gap-1">
+                    <i class="fa-solid fa-bolt"></i> FAST! +BONUS
+                </div>
+
+                <!-- Question Display -->
+                <div id="question-display" class="flex items-center justify-center gap-3 sm:gap-4 font-fredoka text-5xl sm:text-7xl text-indigo-950 my-4">
+                    <span id="factor-a">2</span>
+                    <span class="text-pink-500">×</span>
+                    <span id="factor-b">3</span>
+                    <span class="text-slate-400">=</span>
+                    <span id="user-input-display" class="min-w-[70px] sm:min-w-[90px] h-[65px] sm:h-[80px] bg-slate-100 border-b-4 border-indigo-600 rounded-2xl flex items-center justify-center text-indigo-600 px-2">?</span>
+                </div>
+
+                <!-- Correct Answer Reveal Overlay (WOW ZOOM EFFECT) -->
+                <div id="correct-answer-overlay" class="hidden absolute inset-0 bg-indigo-950/95 flex flex-col items-center justify-center p-4 z-20">
+                    <span class="text-rose-400 font-extrabold text-xs uppercase tracking-widest mb-1 flex items-center gap-1">
+                        <i class="fa-solid fa-circle-xmark"></i> Oops! Remember this fact:
+                    </span>
+                    <div id="correct-answer-box" class="bg-gradient-to-r from-amber-400 via-rose-500 to-purple-600 text-white font-fredoka text-4xl sm:text-6xl px-6 py-4 rounded-3xl shadow-2xl border-4 border-yellow-300 tracking-wide flex items-center gap-2">
+                        <span id="reveal-equation">6 × 7 = 42</span>
+                    </div>
+                </div>
+
+                <!-- Floating Emoji Layer -->
+                <div id="emoji-popup-layer" class="absolute inset-0 pointer-events-none flex items-center justify-center z-10"></div>
+            </div>
+
+            <!-- Touch Keypad -->
+            <div class="grid grid-cols-3 gap-2 bg-slate-900/60 backdrop-blur-md p-3 rounded-3xl border border-white/10 shadow-xl">
+                <button onclick="appendInput('1')" class="keypad-btn bg-slate-100 hover:bg-white text-indigo-950 font-fredoka text-2xl py-3 sm:py-4 rounded-2xl">1</button>
+                <button onclick="appendInput('2')" class="keypad-btn bg-slate-100 hover:bg-white text-indigo-950 font-fredoka text-2xl py-3 sm:py-4 rounded-2xl">2</button>
+                <button onclick="appendInput('3')" class="keypad-btn bg-slate-100 hover:bg-white text-indigo-950 font-fredoka text-2xl py-3 sm:py-4 rounded-2xl">3</button>
+                <button onclick="appendInput('4')" class="keypad-btn bg-slate-100 hover:bg-white text-indigo-950 font-fredoka text-2xl py-3 sm:py-4 rounded-2xl">4</button>
+                <button onclick="appendInput('5')" class="keypad-btn bg-slate-100 hover:bg-white text-indigo-950 font-fredoka text-2xl py-3 sm:py-4 rounded-2xl">5</button>
+                <button onclick="appendInput('6')" class="keypad-btn bg-slate-100 hover:bg-white text-indigo-950 font-fredoka text-2xl py-3 sm:py-4 rounded-2xl">6</button>
+                <button onclick="appendInput('7')" class="keypad-btn bg-slate-100 hover:bg-white text-indigo-950 font-fredoka text-2xl py-3 sm:py-4 rounded-2xl">7</button>
+                <button onclick="appendInput('8')" class="keypad-btn bg-slate-100 hover:bg-white text-indigo-950 font-fredoka text-2xl py-3 sm:py-4 rounded-2xl">8</button>
+                <button onclick="appendInput('9')" class="keypad-btn bg-slate-100 hover:bg-white text-indigo-950 font-fredoka text-2xl py-3 sm:py-4 rounded-2xl">9</button>
+                <button onclick="clearInput()" class="keypad-btn bg-rose-500 hover:bg-rose-400 text-white font-fredoka text-xl py-3 sm:py-4 rounded-2xl">
+                    <i class="fa-solid fa-delete-left"></i>
+                </button>
+                <button onclick="appendInput('0')" class="keypad-btn bg-slate-100 hover:bg-white text-indigo-950 font-fredoka text-2xl py-3 sm:py-4 rounded-2xl">0</button>
+                <button onclick="submitAnswer()" class="keypad-btn bg-emerald-500 hover:bg-emerald-400 text-white font-fredoka text-xl py-3 sm:py-4 rounded-2xl">
+                    GO <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+
+        <!-- ================= SCREEN 4: RESULTS / GAME OVER ================= -->
+        <section id="result-screen" class="hidden w-full max-w-lg arcade-card rounded-3xl p-6 sm:p-8 text-center border-4 border-yellow-400/50 my-auto">
+            <div class="inline-block p-4 rounded-full bg-yellow-100 text-yellow-500 mb-2 animate-bounce">
+                <i class="fa-solid fa-award text-5xl"></i>
+            </div>
+            <h2 class="font-fredoka text-3xl sm:text-4xl text-indigo-950 mb-1">TIME'S UP!</h2>
+            <p class="text-slate-600 font-semibold mb-6 text-sm">Great job power-sprinting through your math!</p>
+
+            <!-- Unlock Banner Notification -->
+            <div id="unlock-notification" class="hidden mb-6 bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-4 rounded-2xl shadow-lg border-2 border-emerald-300 animate-pulse">
+                <div class="font-fredoka text-xl flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-unlock-keyhole text-yellow-300 text-2xl"></i>
+                    NEW TABLE UNLOCKED!
+                </div>
+                <p id="unlock-notification-text" class="text-xs text-emerald-100 mt-1 font-bold">You unlocked Table 4!</p>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <div class="bg-indigo-50 p-3 rounded-2xl border border-indigo-100">
+                    <span class="block text-xs font-black text-slate-400 uppercase">Final Score</span>
+                    <span id="res-score" class="font-fredoka text-3xl text-indigo-900">0</span>
+                </div>
+                <div class="bg-emerald-50 p-3 rounded-2xl border border-emerald-100">
+                    <span class="block text-xs font-black text-slate-400 uppercase">Total Correct</span>
+                    <span id="res-correct" class="font-fredoka text-3xl text-emerald-600">0</span>
+                </div>
+                <div class="bg-amber-50 p-3 rounded-2xl border border-amber-100">
+                    <span class="block text-xs font-black text-slate-400 uppercase">Fast (&lt;5s) Answers</span>
+                    <span id="res-fast" class="font-fredoka text-3xl text-amber-500">0</span>
+                </div>
+                <div class="bg-orange-50 p-3 rounded-2xl border border-orange-100">
+                    <span class="block text-xs font-black text-slate-400 uppercase">Best Streak</span>
+                    <span id="res-streak" class="font-fredoka text-3xl text-orange-500">0</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="showScreen('dashboard-screen')" class="flex-1 arcade-btn bg-slate-200 hover:bg-slate-300 text-indigo-950 font-fredoka py-3.5 rounded-2xl text-md">
+                    <i class="fa-solid fa-house"></i> DASHBOARD
+                </button>
+                <button onclick="startGame()" class="flex-1 arcade-btn bg-emerald-500 hover:bg-emerald-400 text-white font-fredoka py-3.5 rounded-2xl text-md">
+                    <i class="fa-solid fa-rotate-right"></i> PLAY AGAIN
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="w-full max-w-4xl mx-auto text-center py-3 text-white/50 text-xs">
+        <p>Interactive Multiplication Arcade • Local Storage Supported</p>
+    </footer>
+
+    <!-- JS Logic -->
+    <script>
+        // ================= GLOBAL STATE =================
+        let profiles = {};
+        let activeProfileId = null;
+        let soundEnabled = true;
+
+        // Audio Context (Web Audio API)
+        let audioCtx = null;
+
+        // Gameplay state
+        let gameTimer = 120;
+        let timerInterval = null;
+        let currentScore = 0;
+        let currentStreak = 0;
+        let bestStreak = 0;
+        let totalCorrect = 0;
+        let totalFailed = 0;
+        let totalFastAnswers = 0;
+        let sessionFastCount = {};
+
+        let currentFactorA = 0;
+        let currentFactorB = 0;
+        let currentInput = "";
+        let problemStartTime = 0;
+        let isProcessingWrong = false;
+
+        // Default Presets as specified (NO AGES)
+        const PRESETS = {
+            'kid_k': {
+                id: 'kid_k',
+                name: 'Kid K',
+                unlockedTables: [2, 3],
+                tableFastCounts: { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0 },
+                highScore: 0,
+                totalFastAnswers: 0,
+                sessions: []
+            },
+            'kid_y': {
+                id: 'kid_y',
+                name: 'Kid Y',
+                unlockedTables: [2, 3, 4, 5],
+                tableFastCounts: { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0 },
+                highScore: 0,
+                totalFastAnswers: 0,
+                sessions: []
+            }
+        };
+
+        const FAST_THRESHOLD_MS = 5000; // 5 seconds threshold
+        const SESSION_FAST_TO_UNLOCK = 10; // required 10 fast answers on current max table in a session
+
+        const STORAGE_KEY = 'math_sprint_profiles_v2';
+
+        window.onload = function() {
+            loadProfiles();
+            renderProfileList();
+            window.addEventListener('keydown', handleKeyPress);
+        };
+
+        // ================= LOCALSTORAGE MANAGEMENT =================
+        function loadProfiles() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                try {
+                    profiles = JSON.parse(saved);
+                } catch(e) {
+                    profiles = JSON.parse(JSON.stringify(PRESETS));
+                }
+            } else {
+                profiles = JSON.parse(JSON.stringify(PRESETS));
+                saveProfiles();
+            }
+        }
+
+        function saveProfiles() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles));
+            } catch(e) {
+                console.error("localStorage save failed:", e);
+            }
+        }
+
+        // ================= KEYBOARD INPUT =================
+        function handleKeyPress(e) {
+            const gameScreen = document.getElementById('game-screen');
+            if (gameScreen.classList.contains('hidden') || isProcessingWrong) return;
+
+            if (e.key >= '0' && e.key <= '9') {
+                appendInput(e.key);
+            } else if (e.key === 'Backspace' || e.key === 'Delete') {
+                clearInput();
+            } else if (e.key === 'Enter') {
+                submitAnswer();
+            }
+        }
+
+        function appendInput(digit) {
+            if (isProcessingWrong) return;
+            playSound('click');
+            if (currentInput.length < 4) {
+                currentInput += digit;
+                updateInputDisplay();
+            }
+        }
+
+        function clearInput() {
+            if (isProcessingWrong) return;
+            playSound('click');
+            currentInput = "";
+            updateInputDisplay();
+        }
+
+        function updateInputDisplay() {
+            const display = document.getElementById('user-input-display');
+            if (display) {
+                display.innerText = currentInput || "?";
+            }
+        }
+
+        function submitAnswer() {
+            if (isProcessingWrong || currentInput === "") return;
+
+            const userAns = parseInt(currentInput, 10);
+            const correctAns = currentFactorA * currentFactorB;
+            const timeTaken = Date.now() - problemStartTime;
+
+            currentInput = "";
+            updateInputDisplay();
+
+            if (userAns === correctAns) {
+                handleCorrectAnswer(timeTaken);
+            } else {
+                handleWrongAnswer(correctAns);
+            }
+        }
+
+        function nextQuestion() {
+            const p = profiles[activeProfileId];
+            if (!p || !p.unlockedTables || p.unlockedTables.length === 0) return;
+
+            const availableTables = p.unlockedTables;
+            currentFactorA = availableTables[Math.floor(Math.random() * availableTables.length)];
+            currentFactorB = Math.floor(Math.random() * 11) + 2;
+
+            if (Math.random() > 0.5) {
+                const temp = currentFactorA;
+                currentFactorA = currentFactorB;
+                currentFactorB = temp;
+            }
+
+            document.getElementById('factor-a').innerText = currentFactorA;
+            document.getElementById('factor-b').innerText = currentFactorB;
+
+            currentInput = "";
+            updateInputDisplay();
+            problemStartTime = Date.now();
+        }
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.1);
+                osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.2);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(110, now + 0.25);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } else if (type === 'click') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(400, now);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } else if (type === 'unlock') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.setValueAtTime(554.37, now + 0.1);
+                osc.frequency.setValueAtTime(659.25, now + 0.2);
+                osc.frequency.setValueAtTime(880, now + 0.3);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById('sound-icon');
+            icon.className = soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark text-red-400';
+            playSound('click');
+        }
+
+        // ================= SCREEN SWITCHER =================
+        function showScreen(screenId) {
+            playSound('click');
+            ['profile-screen', 'dashboard-screen', 'game-screen', 'result-screen'].forEach(id => {
+                const el = document.getElementById(id);
+                if (id === screenId) {
+                    el.classList.remove('hidden');
+                } else {
+                    el.classList.add('hidden');
+                }
+            });
+
+            if (screenId === 'profile-screen') {
+                renderProfileList();
+            } else if (screenId === 'dashboard-screen') {
+                renderDashboard();
+            }
+        }
+
+        // ================= PROFILES UI =================
+        function renderProfileList() {
+            const container = document.getElementById('profiles-container');
+            container.innerHTML = '';
+
+            Object.values(profiles).forEach(p => {
+                const card = document.createElement('div');
+                card.className = "p-4 rounded-2xl border-2 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100/80 cursor-pointer transition flex flex-col items-center justify-center text-center shadow-sm hover:scale-105 transform";
+                
+                const initials = p.name.charAt(0).toUpperCase();
+                const tablesText = p.unlockedTables.join(', ');
+
+                card.innerHTML = `
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white font-fredoka text-xl flex items-center justify-center mb-2 shadow-md">
+                        ${initials}
+                    </div>
+                    <div class="font-fredoka text-lg text-indigo-950">${p.name}</div>
+                    <div class="text-[11px] font-bold text-slate-500 mt-1">Tables: ${tablesText}</div>
+                    <div class="text-[11px] font-black text-amber-500 mt-0.5">High Score: ${p.highScore || 0}</div>
+                `;
+
+                card.onclick = () => selectProfile(p.id);
+                container.appendChild(card);
+            });
+        }
+
+        function toggleNewProfileForm() {
+            playSound('click');
+            const form = document.getElementById('new-profile-form');
+            form.classList.toggle('hidden');
+        }
+
+        function createNewProfile() {
+            const input = document.getElementById('new-player-name');
+            const name = input.value.trim();
+            if (!name) return;
+
+            const id = 'custom_' + Date.now();
+            profiles[id] = {
+                id: id,
+                name: name,
+                unlockedTables: [2, 3],
+                tableFastCounts: { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0 },
+                highScore: 0,
+                totalFastAnswers: 0,
+                sessions: []
+            };
+
+            saveProfiles();
+            input.value = '';
+            toggleNewProfileForm();
+            selectProfile(id);
+        }
+
+        function selectProfile(id) {
+            activeProfileId = id;
+            const p = profiles[activeProfileId];
+            
+            document.getElementById('active-profile-pill').classList.remove('hidden');
+            document.getElementById('nav-player-name').innerText = p.name;
+
+            showScreen('dashboard-screen');
+        }
+
+        // ================= DASHBOARD UI =================
+        function renderDashboard() {
+            const p = profiles[activeProfileId];
+            if (!p) return;
+
+            document.getElementById('dash-player-name').innerText = p.name;
+            document.getElementById('dash-avatar').innerText = p.name.charAt(0).toUpperCase();
+            document.getElementById('dash-high-score').innerText = p.highScore || 0;
+            document.getElementById('dash-fast-answers').innerText = p.totalFastAnswers || 0;
+
+            // Render Unlocked Tables Grid
+            const grid = document.getElementById('tables-grid');
+            grid.innerHTML = '';
+            const maxUnlocked = Math.max(...p.unlockedTables);
+
+            for (let t = 2; t <= 12; t++) {
+                const isUnlocked = p.unlockedTables.includes(t);
+                
+                const card = document.createElement('div');
+                if (isUnlocked) {
+                    const isHighestUnlocked = (t === maxUnlocked);
+                    card.className = "bg-emerald-50 border-2 border-emerald-300 rounded-xl p-2 text-center flex flex-col items-center justify-between shadow-sm";
+                    card.innerHTML = `
+                        <span class="font-fredoka text-lg text-emerald-800">×${t}</span>
+                        <span class="text-[9px] font-black text-emerald-600 bg-emerald-200/60 px-1.5 py-0.5 rounded-full mt-1">
+                            ${isHighestUnlocked ? '★ Target' : 'Ready'}
+                        </span>
+                    `;
+                } else {
+                    const isNextToUnlock = t === maxUnlocked + 1;
+                    card.className = `border-2 ${isNextToUnlock ? 'bg-amber-50/70 border-amber-300' : 'bg-slate-100 border-slate-200 opacity-60'} rounded-xl p-2 text-center flex flex-col items-center justify-between`;
+                    
+                    card.innerHTML = `
+                        <div class="flex items-center gap-1 font-fredoka text-sm text-slate-500">
+                            <i class="fa-solid fa-lock text-xs"></i> ×${t}
+                        </div>
+                        ${isNextToUnlock ? `
+                            <span class="text-[9px] font-extrabold text-amber-700 mt-1">Get 10 Fast in 1 session on ×${maxUnlocked}</span>
+                        ` : `
+                            <span class="text-[9px] font-bold text-slate-400 mt-1">Locked</span>
+                        `}
+                    `;
+                }
+                grid.appendChild(card);
+            }
+
+            // Render Session Logs Table
+            renderSessionLogsTable(p.sessions || []);
+        }
+
+        function renderSessionLogsTable(sessions) {
+            const tbody = document.getElementById('session-history-tbody');
+            tbody.innerHTML = '';
+
+            if (!sessions || sessions.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="4" class="p-4 text-center text-slate-400 font-semibold italic">
+                            No games played yet. Click "START GAME" above to begin your first speed run!
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            // Sort newest first & display max 50
+            const recentSessions = [...sessions].reverse().slice(0, 50);
+
+            recentSessions.forEach((s, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/80 hover:bg-indigo-50/50';
+
+                tr.innerHTML = `
+                    <td class="p-2.5 sm:p-3 text-slate-600 font-mono text-[11px]">${s.timestamp}</td>
+                    <td class="p-2.5 sm:p-3 text-center font-fredoka text-indigo-900 text-sm">${s.score}</td>
+                    <td class="p-2.5 sm:p-3 text-center font-black text-emerald-600 bg-emerald-50/50">${s.passed}</td>
+                    <td class="p-2.5 sm:p-3 text-center font-black text-rose-500 bg-rose-50/50">${s.failed}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function clearCurrentProfileHistory() {
+            if (!activeProfileId || !profiles[activeProfileId]) return;
+
+            const pName = profiles[activeProfileId].name;
+            if (confirm(`Are you sure you want to clear the game history logs for ${pName}? This cannot be undone.`)) {
+                profiles[activeProfileId].sessions = [];
+                saveProfiles();
+                renderDashboard();
+                playSound('click');
+            }
+        }
+
+        // ================= GAMEPLAY ENGINE =================
+        function startGame() {
+            const p = profiles[activeProfileId];
+            if (!p) return;
+
+            gameTimer = 120;
+            currentScore = 0;
+            currentStreak = 0;
+            bestStreak = 0;
+            totalCorrect = 0;
+            totalFailed = 0;
+            totalFastAnswers = 0;
+            isProcessingWrong = false;
+            sessionFastCount = {};
+
+            for (let i = 2; i <= 12; i++) {
+                sessionFastCount[i] = 0;
+            }
+
+            document.getElementById('game-timer').innerText = '120s';
+            document.getElementById('game-score').innerText = '0';
+            document.getElementById('game-streak').innerHTML = '0 <i class="fa-solid fa-fire text-sm"></i>';
+
+            document.getElementById('unlock-notification').classList.add('hidden');
+            document.getElementById('correct-answer-overlay').classList.add('hidden');
+
+            showScreen('game-screen');
+            nextQuestion();
+
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (!isProcessingWrong) {
+                    gameTimer--;
+                    document.getElementById('game-timer').innerText = gameTimer + 's';
+
+                    if (gameTimer <= 0) {
+                        clearInterval(timerInterval);
+                        endGame();
+                    }
+                }
+            }, 1000);
+        }
+
+        function handleCorrectAnswer(timeTaken) {
+            playSound('correct');
+            totalCorrect++;
+            currentStreak++;
+            if (currentStreak > bestStreak) bestStreak = currentStreak;
+
+            const isFast = timeTaken <= FAST_THRESHOLD_MS;
+            
+            // Score Calculation logic: Base (1 pt) + Streak (Streak x 1 pt) + Speed (+5 pts)
+            let points = 1 + (currentStreak * 1);
+
+            if (isFast) {
+                points += 5;
+                totalFastAnswers++;
+
+                sessionFastCount[currentFactorA] = (sessionFastCount[currentFactorA] || 0) + 1;
+                sessionFastCount[currentFactorB] = (sessionFastCount[currentFactorB] || 0) + 1;
+
+                showSpeedFeedback();
+            }
+
+            currentScore += points;
+
+            document.getElementById('game-score').innerText = currentScore;
+            document.getElementById('game-streak').innerHTML = `${currentStreak} <i class="fa-solid fa-fire text-sm"></i>`;
+
+            triggerCelebrationEmoji();
+            triggerMicroConfetti();
+
+            nextQuestion();
+        }
+
+        function handleWrongAnswer(correctAns) {
+            playSound('wrong');
+            totalFailed++;
+            currentStreak = 0;
+            document.getElementById('game-streak').innerHTML = `0 <i class="fa-solid fa-fire text-sm"></i>`;
+
+            isProcessingWrong = true;
+
+            const problemCard = document.getElementById('problem-card');
+            problemCard.classList.remove('animate-shake');
+            void problemCard.offsetWidth; // force reflow
+            problemCard.classList.add('animate-shake');
+
+            const equationText = `${currentFactorA} × ${currentFactorB} = ${correctAns}`;
+            document.getElementById('reveal-equation').innerText = equationText;
+
+            const overlay = document.getElementById('correct-answer-overlay');
+            const box = document.getElementById('correct-answer-box');
+            
+            box.classList.remove('animate-wow-zoom');
+            void box.offsetWidth;
+            box.classList.add('animate-wow-zoom');
+            
+            overlay.classList.remove('hidden');
+
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                problemCard.classList.remove('animate-shake');
+                isProcessingWrong = false;
+                nextQuestion();
+            }, 1200);
+        }
+
+        function showSpeedFeedback() {
+            const el = document.getElementById('speed-feedback');
+            el.classList.remove('opacity-0');
+            setTimeout(() => {
+                el.classList.add('opacity-0');
+            }, 800);
+        }
+
+        function triggerCelebrationEmoji() {
+            const emojis = ['🌟', '🎉', '🚀', '👏', '🔥', '⚡', '💯'];
+            const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+            const layer = document.getElementById('emoji-popup-layer');
+            const pop = document.createElement('div');
+            pop.innerText = emoji;
+            pop.className = "text-6xl absolute animate-bounce-short pointer-events-none transform -translate-y-8 opacity-90 transition-all duration-500";
+            
+            layer.appendChild(pop);
+            setTimeout(() => {
+                pop.remove();
+            }, 500);
+        }
+
+        function triggerMicroConfetti() {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 15,
+                    spread: 60,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        // ================= END GAME & SAVE SESSION =================
+        function endGame() {
+            const p = profiles[activeProfileId];
+            if (!p) return;
+
+            if (currentScore > (p.highScore || 0)) {
+                p.highScore = currentScore;
+            }
+            p.totalFastAnswers = (p.totalFastAnswers || 0) + totalFastAnswers;
+
+            // Update persistent fast counts
+            Object.keys(sessionFastCount).forEach(table => {
+                const tNum = parseInt(table, 10);
+                p.tableFastCounts[tNum] = (p.tableFastCounts[tNum] || 0) + (sessionFastCount[tNum] || 0);
+            });
+
+            // Evaluate unlocking table
+            let newlyUnlockedTable = null;
+            const currentMaxUnlocked = Math.max(...p.unlockedTables);
+
+            if (currentMaxUnlocked < 12) {
+                const nextTable = currentMaxUnlocked + 1;
+                const fastAnswersInThisSessionOnMaxTable = sessionFastCount[currentMaxUnlocked] || 0;
+
+                if (fastAnswersInThisSessionOnMaxTable >= SESSION_FAST_TO_UNLOCK) {
+                    p.unlockedTables.push(nextTable);
+                    newlyUnlockedTable = nextTable;
+                    playSound('unlock');
+                }
+            }
+
+            // Create formatted Session Log
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            const sessionRecord = {
+                timestamp: `${dateStr}, ${timeStr}`,
+                score: currentScore,
+                passed: totalCorrect,
+                failed: totalFailed
+            };
+
+            if (!p.sessions) p.sessions = [];
+            p.sessions.push(sessionRecord);
+
+            // Retain up to last 100 sessions in localStorage to prevent overflow
+            if (p.sessions.length > 100) {
+                p.sessions = p.sessions.slice(-100);
+            }
+
+            saveProfiles();
+
+            // Populate Result Screen
+            document.getElementById('res-score').innerText = currentScore;
+            document.getElementById('res-correct').innerText = totalCorrect;
+            document.getElementById('res-fast').innerText = totalFastAnswers;
+            document.getElementById('res-streak').innerText = bestStreak;
+
+            const unlockBanner = document.getElementById('unlock-notification');
+            if (newlyUnlockedTable) {
+                document.getElementById('unlock-notification-text').innerText = `Outstanding! You scored ${sessionFastCount[currentMaxUnlocked]} fast answers on Table ${currentMaxUnlocked} and unlocked Table ${newlyUnlockedTable}!`;
+                unlockBanner.classList.remove('hidden');
+
+                if (typeof confetti === 'function') {
+                    confetti({ particleCount: 100, spread: 100, origin: { y: 0.4 } });
+                }
+            } else {
+                unlockBanner.classList.add('hidden');
+            }
+
+            showScreen('result-screen');
+        }
+    </script>
+</body>
+</html>
